@@ -11,14 +11,15 @@ const DEFAULT_BALANCE = 100;
 exports.chargeRequestRedis = async function (input) {
     const redisClient = await getRedisClient();
 
-    const redisTransactionClient = await multi(redisClient);
+    await watch(redisClient, KEY);  // acquire lock on key
     let remainingBalance = await getBalanceRedis(redisClient, KEY);
     const charges = getCharges();
 
     const isAuthorized = authorizeRequest(remainingBalance, charges);
     if (!isAuthorized) {
-        await exec(redisTransactionClient);
+        await unwatch(redisClient);  // release lock on key
         await disconnectRedis(redisClient);
+
         return {
             remainingBalance,
             isAuthorized,
@@ -26,10 +27,11 @@ exports.chargeRequestRedis = async function (input) {
         };
     }
 
-    remainingBalance = await chargeRedis(redisTransactionClient, KEY, charges);
-    await exec(redisTransactionClient);
-
+    let redisTransactionClient = await multi(redisClient);
+    redisTransactionClient = await chargeRedis(redisTransactionClient, KEY, charges);
+    remainingBalance = await exec(redisTransactionClient);
     await disconnectRedis(redisClient);
+
     return {
         remainingBalance,
         charges,
@@ -97,18 +99,32 @@ function getCharges() {
 }
 
 async function getBalanceRedis(redisClient, key) {
+    console.log("getBalanceRedis...");
     const res = await util.promisify(redisClient.get).bind(redisClient).call(redisClient, key);
     return parseInt(res || "0");
 }
 
 async function chargeRedis(redisClient, key, charges) {
-    return util.promisify(redisClient.decrby).bind(redisClient).call(redisClient, key, charges);
+    console.log("chargeRedis...");
+    return redisClient.decrby(key, charges);
 }
 
-async function multi(redisClient) {
-    return util.promisify(redisClient.multi).bind(redisClient).call(redisClient);
+async function watch(redisClient, key) {
+    console.log("watch...");
+    return util.promisify(redisClient.watch).bind(redisClient).call(redisClient, key);
+}
+
+async function unwatch(redisClient) {
+    console.log("unwatch...");
+    return util.promisify(redisClient.unwatch).bind(redisClient).call(redisClient);
+}
+
+function multi(redisClient) {
+    console.log("multi...");
+    return redisClient.multi();
 }
 
 async function exec(redisClient) {
+    console.log("exec...");
     return util.promisify(redisClient.exec).bind(redisClient).call(redisClient);
 }
