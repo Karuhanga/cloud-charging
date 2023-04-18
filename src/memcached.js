@@ -11,11 +11,11 @@ const memcachedClient = new memcached(`${process.env.ENDPOINT}:${process.env.POR
 
 exports.resetMemcached = async function () {
     var ret = new Promise((resolve, reject) => {
-        memcachedClient.set(KEY, DEFAULT_BALANCE, MAX_EXPIRATION, (res, error) => {
-            if (error)
-                reject(res);
-            else
+        memcachedClient.set(KEY, DEFAULT_BALANCE, MAX_EXPIRATION, (res, notError) => {
+            if (notError)
                 resolve(DEFAULT_BALANCE);
+            else
+                reject(res);
         });
     });
     return ret;
@@ -67,8 +67,7 @@ function chargeMemcached(key, charges, remainingBalanceIdentifiable) {
     const newBalance = remainingBalance - charges;
 
     return new Promise((resolve, reject) => {
-        memcachedClient.cas(
-            key, newBalance, remainingBalanceIdentifiable.cas, MAX_EXPIRATION, (err, result) => {
+        memcachedClient.cas(key, newBalance, remainingBalanceIdentifiable.cas, MAX_EXPIRATION, (err, result) => {
             if (err) {
                 reject(err);
             }
