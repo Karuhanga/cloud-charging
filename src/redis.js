@@ -99,32 +99,26 @@ function getCharges() {
 }
 
 async function getBalanceRedis(redisClient, key) {
-    console.log("getBalanceRedis...");
     const res = await util.promisify(redisClient.get).bind(redisClient).call(redisClient, key);
     return parseInt(res || "0");
 }
 
 async function chargeRedis(redisClient, key, charges) {
-    console.log("chargeRedis...");
     return redisClient.decrby(key, charges);
 }
 
 async function watch(redisClient, key) {
-    console.log("watch...");
     return util.promisify(redisClient.watch).bind(redisClient).call(redisClient, key);
 }
 
 async function unwatch(redisClient) {
-    console.log("unwatch...");
     return util.promisify(redisClient.unwatch).bind(redisClient).call(redisClient);
 }
 
 function multi(redisClient) {
-    console.log("multi...");
     return redisClient.multi();
 }
 
 async function exec(redisClient) {
-    console.log("exec...");
     return util.promisify(redisClient.exec).bind(redisClient).call(redisClient);
 }
